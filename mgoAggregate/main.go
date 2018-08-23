@@ -2,20 +2,29 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
+
+	"github.com/moby/moby/pkg/namesgenerator"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 type User struct {
 	ID   bson.ObjectId `bson:"_id"`
-	Name string        `bson:"userName"`
+	Name string        `bson:"name"`
+	Pods []Pod         `bson:"pods"`
 }
 
 type Pod struct {
-	ID    bson.ObjectId `bson:"_id"`
-	User  bson.ObjectId `bson:"user"`
-	Name  string        `bson:"name"`
-	Users []User        `bson:"users" json:"users"`
+	ID        bson.ObjectId `bson:"_id"`
+	CreatedBy bson.ObjectId `bson:"createdBy"`
+	Name      string        `bson:"name"`
+}
+
+//For namesgenerator
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
@@ -23,33 +32,37 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	defer session.Close()
+
 	db := session.DB("pratice")
 
+	//Create User
 	user := User{
-		Name: "YoYo",
+		Name: namesgenerator.GetRandomName(0),
+		ID:   bson.NewObjectId(),
 	}
 
-	pod := Pod{
-		Name: "MyPod",
-	}
-	pod.ID = bson.NewObjectId()
-	user.ID = bson.NewObjectId()
-	pod.User = user.ID
-	err = db.C("pods").Insert(pod)
-	err = db.C("users").Insert(user)
-	defer db.C("pods").RemoveId(pod.ID)
+	db.C("users").Insert(user)
 	defer db.C("users").RemoveId(user.ID)
-	fmt.Println("Try to lookup")
-	pipeline := []bson.M{
-		//bson.M{"$lookup": bson.M{"from": "users", "localField": "user", "foreignField": "_id", "as": "users"}},
-		//	bson.M{"$match": bson.M{"name": "MyPod"}},
-		{"$lookup": bson.M{"from": "users", "localField": "user", "foreignField": "_id", "as": "users"}},
-		{"$match": bson.M{"name": "MyPod"}},
+	//Create Pods
+	for i := 0; i <= 5; i++ {
+		pod := Pod{
+			ID:        bson.NewObjectId(),
+			Name:      namesgenerator.GetRandomName(0),
+			CreatedBy: user.ID,
+		}
+		db.C("pods").Insert(pod)
+		defer db.C("pods").Remove(bson.M{"name": pod.Name})
 	}
 
-	var resp Pod
-	err = db.C("pods").Pipe(pipeline).One(&resp)
-	fmt.Printf("%v\n %+v", err, resp)
+	pipeline := []bson.M{
+		{"$lookup": bson.M{"from": "pods", "localField": "_id", "foreignField": "createdBy", "as": "pods"}},
+		{"$match": bson.M{"_id": user.ID}},
+	}
+
+	var resp User
+	db.C("users").Pipe(pipeline).One(&resp)
+	for _, v := range resp.Pods {
+		fmt.Printf("%+v\n", v)
+	}
 }

@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "lWGMT6TAkTEwkSJGq401hnDIQI0=",
+			"path": "github.com/moby/moby/pkg/namesgenerator",
+			"revision": "a0385f7ad7f8ebab4ca88e9b629a6b31423a10ee",
+			"revisionTime": "2018-08-22T11:51:47Z"
+		},
+		{
 			"checksumSHA1": "bS5Kp6YjeXz4nvvS55CqIBP+HzM=",
 			"path": "gopkg.in/mgo.v2",
 			"revision": "9856a29383ce1c59f308dd1cf0363a79b5bef6b5",
@@ -33,5 +39,5 @@
 			"revisionTime": "2018-07-05T11:36:04Z"
 		}
 	],
-	"rootPath": "github.com/linkernetworks/mgo"
+	"rootPath": "github.com/hwchiu/GolangPratice/mgoAggregate"
 }
