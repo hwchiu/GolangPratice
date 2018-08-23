@@ -27,6 +27,32 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+func pipeline(c *mgo.Collection, user User) {
+	start := time.Now()
+
+	pipeline := []bson.M{
+		{"$lookup": bson.M{"from": "pods", "localField": "_id", "foreignField": "createdBy", "as": "pods"}},
+		{"$match": bson.M{"_id": user.ID}},
+	}
+
+	var resp User
+	err := c.Pipe(pipeline).One(&resp)
+	if err != nil {
+		fmt.Println(err)
+	}
+	elapsed := time.Since(start)
+	fmt.Printf("Pipeline took %s: %d\n", elapsed, len(resp.Pods))
+}
+
+func find(c *mgo.Collection, user User) {
+	start := time.Now()
+
+	c.Find(bson.M{"createdBy": user.ID}).All(&user.Pods)
+
+	elapsed := time.Since(start)
+	fmt.Printf("Find took %s: %d\n", elapsed, len(user.Pods))
+}
+
 func main() {
 	session, err := mgo.Dial("127.0.0.1")
 	if err != nil {
@@ -45,24 +71,16 @@ func main() {
 	db.C("users").Insert(user)
 	defer db.C("users").RemoveId(user.ID)
 	//Create Pods
-	for i := 0; i <= 5; i++ {
+	for i := 0; i < 30000; i++ {
 		pod := Pod{
 			ID:        bson.NewObjectId(),
 			Name:      namesgenerator.GetRandomName(0),
 			CreatedBy: user.ID,
 		}
 		db.C("pods").Insert(pod)
-		defer db.C("pods").Remove(bson.M{"name": pod.Name})
 	}
+	defer db.C("pods").DropCollection()
 
-	pipeline := []bson.M{
-		{"$lookup": bson.M{"from": "pods", "localField": "_id", "foreignField": "createdBy", "as": "pods"}},
-		{"$match": bson.M{"_id": user.ID}},
-	}
-
-	var resp User
-	db.C("users").Pipe(pipeline).One(&resp)
-	for _, v := range resp.Pods {
-		fmt.Printf("%+v\n", v)
-	}
+	pipeline(db.C("users"), user)
+	find(db.C("pods"), user)
 }
